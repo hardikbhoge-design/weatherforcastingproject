@@ -1,0 +1,266 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SYNOPTIC &bull; Meteorological Telemetry Portal &bull; Sign In</title>
+    <meta name="description" content="SYNOPTIC - Sign in to access AI weather telemetry, risk scores, voice broadcasts, and satellite forecasts.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Auth Stylesheet with Cache-Busting -->
+    <link rel="stylesheet" href="{% static 'css/auth.css' %}?v=5.0.0">
+</head>
+<body class="auth-body">
+
+    <!-- ======================================================================
+         1. Multi-Layer Mountain Sunset Vector Scenery Background (Unified)
+         ====================================================================== -->
+    <div class="synoptic-scenery-container">
+        <div class="sunset-sun-orb"></div>
+
+        <!-- Interactive Parallax Floating Clouds Layers -->
+        <div class="interactive-cloud-layer cloud-layer-bg" id="cloud-layer-bg">
+            <div class="fl-cloud fl-cloud-1"></div>
+            <div class="fl-cloud fl-cloud-2"></div>
+            <div class="fl-cloud fl-cloud-3"></div>
+        </div>
+        <div class="interactive-cloud-layer cloud-layer-mid" id="cloud-layer-mid">
+            <div class="fl-cloud fl-cloud-4"></div>
+            <div class="fl-cloud fl-cloud-5"></div>
+        </div>
+        <div class="interactive-cloud-layer cloud-layer-fg" id="cloud-layer-fg">
+            <div class="fl-cloud fl-cloud-6"></div>
+        </div>
+
+        <svg class="mountain-svg-layer" viewBox="0 0 1440 900" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+                <linearGradient id="mtnFarGradAuth" x1="0" y1="300" x2="1440" y2="600" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#ad716a" stop-opacity="0.85"/>
+                    <stop offset="50%" stop-color="#8a5c68" stop-opacity="0.9"/>
+                    <stop offset="100%" stop-color="#6a4c5e" stop-opacity="0.8"/>
+                </linearGradient>
+
+                <linearGradient id="mtnMidGradAuth" x1="720" y1="380" x2="720" y2="750" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#5a455a"/>
+                    <stop offset="50%" stop-color="#3c344a"/>
+                    <stop offset="100%" stop-color="#242236"/>
+                </linearGradient>
+
+                <linearGradient id="mtnNearGradAuth" x1="720" y1="460" x2="720" y2="900" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stop-color="#222336"/>
+                    <stop offset="40%" stop-color="#151724"/>
+                    <stop offset="100%" stop-color="#0a0c12"/>
+                </linearGradient>
+            </defs>
+
+            <!-- Distant Mountain Ridge -->
+            <path d="M-50 480 C120 440, 240 460, 360 410 C480 360, 580 430, 720 400 C860 370, 960 420, 1100 390 C1240 360, 1380 440, 1500 420 L1500 900 L-50 900 Z" fill="url(#mtnFarGradAuth)"/>
+
+            <!-- Mid Mountain Ridge -->
+            <path d="M-50 540 C100 480, 220 520, 340 450 C460 380, 560 490, 680 460 C800 430, 920 510, 1060 470 C1200 430, 1340 520, 1500 490 L1500 900 L-50 900 Z" fill="url(#mtnMidGradAuth)" opacity="0.95"/>
+
+            <!-- Foreground Crest -->
+            <path d="M-50 680 C180 580, 320 690, 520 610 C720 530, 900 680, 1150 630 C1350 580, 1420 650, 1500 620 L1500 900 L-50 900 Z" fill="url(#mtnNearGradAuth)"/>
+        </svg>
+
+        <div class="atmospheric-mist"></div>
+    </div>
+
+    <!-- ======================================================================
+         2. Main Stage Layout (3-Column Motion Graphics Grid)
+         ====================================================================== -->
+    <main class="auth-stage-layout">
+
+        <!-- Left 3D Telemetry Side Card -->
+        <aside class="auth-telemetry-badge badge-left motion-reveal delay-1">
+            <div class="tel-header">
+                <div class="tel-icon-wrap" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8;">
+                    <i class="fa-solid fa-satellite"></i>
+                </div>
+                <div>
+                    <div class="tel-title">Orbital Satellite Sync</div>
+                    <div class="tel-subtitle">Open-Meteo &bull; ECMWF v4</div>
+                </div>
+            </div>
+
+            <div class="tel-metric-box">
+                <span class="tel-metric-label">Resolution Grid:</span>
+                <span class="tel-metric-val">9.0 km High-Def</span>
+            </div>
+
+            <div class="tel-metric-box">
+                <span class="tel-metric-label">Atmospheric Assimilation:</span>
+                <span class="tel-metric-val" style="color: #10b981;">100% Real-Time</span>
+            </div>
+
+            <div class="tel-metric-box">
+                <span class="tel-metric-label">Global Station Nodes:</span>
+                <span class="tel-metric-val">10,000+ Active</span>
+            </div>
+        </aside>
+
+        <!-- Central Holographic Observatory Card with 3D Tilt & Specular Sheen -->
+        <div class="auth-wrapper motion-reveal delay-2">
+            <div class="auth-card-outer-frame" id="interactive-card-frame">
+                <div class="auth-card" id="interactive-card">
+                    
+                    <!-- Brand Section -->
+                    <div class="auth-brand-section">
+                        <div class="auth-brand-logo-wrap">
+                            <i class="fa-solid fa-bolt-lightning"></i>
+                        </div>
+                        <h1 class="auth-brand-title">SYNOPTIC</h1>
+                        <p class="auth-brand-sub">AI Meteorological Telemetry Portal</p>
+                        
+                        <!-- Live Telemetry Pill -->
+                        <div class="auth-live-pill">
+                            <span class="live-pulse-dot"></span>
+                            <span>Live Core: 28°C &bull; 0% Rain Risk &bull; 1018 hPa</span>
+                        </div>
+                    </div>
+
+                    <!-- Alerts / Messages -->
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="auth-alert-card {% if message.tags == 'error' %}error{% else %}info{% endif %}">
+                                <i class="fa-solid {% if message.tags == 'error' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %}"></i>
+                                <span>{{ message }}</span>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <!-- Tab Switcher -->
+                    <div class="auth-tab-row">
+                        <button type="button" class="auth-tab-btn active" data-tab="login">
+                            <i class="fa-solid fa-right-to-bracket"></i> Sign In
+                        </button>
+                        <button type="button" class="auth-tab-btn" data-tab="register">
+                            <i class="fa-solid fa-user-plus"></i> Create Account
+                        </button>
+                    </div>
+
+                    <!-- Sign In Form -->
+                    <form id="login-form" class="auth-form" method="POST" action="{% url 'forecast:login' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="login">
+
+                        <div class="auth-form-group">
+                            <label class="auth-label"><i class="fa-solid fa-user"></i> Username or Email</label>
+                            <div class="auth-input-wrap">
+                                <input type="text" name="username" class="auth-input" placeholder="Enter username or email address" required autofocus autocomplete="username">
+                            </div>
+                        </div>
+
+                        <div class="auth-form-group">
+                            <label class="auth-label"><i class="fa-solid fa-lock"></i> Password</label>
+                            <div class="auth-input-wrap">
+                                <input type="password" name="password" class="auth-input" placeholder="Enter your password" required autocomplete="current-password">
+                                <button type="button" class="auth-input-toggle-btn" title="Toggle password view">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; color: var(--syn-text-muted);">
+                            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                <input type="checkbox" name="remember" checked style="accent-color: #facc15;">
+                                <span>Remember session</span>
+                            </label>
+                            <a href="/?guest=1" style="color: #facc15; text-decoration: none; font-weight: 700;">Explore as Guest &rarr;</a>
+                        </div>
+
+                        <button type="submit" class="auth-submit-btn">
+                            <span>Sign In to Observatory</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                    </form>
+
+                    <!-- Registration Form (Hidden by default) -->
+                    <form id="register-form" class="auth-form" method="POST" action="{% url 'forecast:register' %}" style="display: none;">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="register">
+
+                        <div class="auth-form-group">
+                            <label class="auth-label"><i class="fa-solid fa-user"></i> Username</label>
+                            <div class="auth-input-wrap">
+                                <input type="text" name="username" class="auth-input" placeholder="Choose a unique username" required autocomplete="username">
+                            </div>
+                        </div>
+
+                        <div class="auth-form-group">
+                            <label class="auth-label"><i class="fa-solid fa-envelope"></i> Email (Optional)</label>
+                            <div class="auth-input-wrap">
+                                <input type="email" name="email" class="auth-input" placeholder="name@example.com" autocomplete="email">
+                            </div>
+                        </div>
+
+                        <div class="auth-form-group">
+                            <label class="auth-label"><i class="fa-solid fa-lock"></i> Password</label>
+                            <div class="auth-input-wrap">
+                                <input type="password" name="password" class="auth-input" placeholder="Create password (min 6 characters)" required autocomplete="new-password">
+                                <button type="button" class="auth-input-toggle-btn" title="Toggle password view">
+                                    <i class="fa-solid fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="auth-submit-btn" style="background: linear-gradient(135deg, #38bdf8, #2563eb); color: #ffffff;">
+                            <span>Create Account &bull; Access Telemetry</span>
+                            <i class="fa-solid fa-user-plus"></i>
+                        </button>
+                    </form>
+
+                    <div class="auth-divider">Or Fast Access</div>
+
+                    <!-- 1-Click Demo Login Button -->
+                    <a href="{% url 'forecast:demo_login' %}" class="auth-demo-btn">
+                        <i class="fa-solid fa-bolt-lightning text-gold"></i>
+                        <span>1-Click Instant Demo Login</span>
+                    </a>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- Right 3D Telemetry Side Card -->
+        <aside class="auth-telemetry-badge badge-right motion-reveal delay-3">
+            <div class="tel-header">
+                <div class="tel-icon-wrap" style="background: rgba(250, 204, 21, 0.2); color: #facc15;">
+                    <i class="fa-solid fa-brain"></i>
+                </div>
+                <div>
+                    <div class="tel-title">AI Neural Core</div>
+                    <div class="tel-subtitle">HistGradBoosting v2.2</div>
+                </div>
+            </div>
+
+            <div class="tel-metric-box">
+                <span class="tel-metric-label">Model Accuracy F1:</span>
+                <span class="tel-metric-val" style="color: #38bdf8;">0.948 (Ultra-High)</span>
+            </div>
+
+            <div class="tel-metric-box">
+                <span class="tel-metric-label">Precipitation Predictor:</span>
+                <span class="tel-metric-val">Dual 6-Hour Horizon</span>
+            </div>
+
+            <div class="tel-metric-box">
+                <span class="tel-metric-label">Inference Latency:</span>
+                <span class="tel-metric-val" style="color: #10b981;">&lt; 12 ms</span>
+            </div>
+        </aside>
+
+    </main>
+
+    <!-- Auth Script with 3D Tilt & Micro-Interactions -->
+    <script src="{% static 'js/auth.js' %}?v=5.0.0"></script>
+</body>
+</html>

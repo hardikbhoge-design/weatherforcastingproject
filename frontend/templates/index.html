@@ -1,0 +1,759 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ data.location.city|default:"Seattle" }}, {{ data.location.country|default:"Australia" }} &bull; Obsidian Weather AI</title>
+    <meta name="description" content="Obsidian Dark Meteorological Dashboard - Real-time AI forecasts, chance of rain, global radar map, and world cities telemetry.">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Leaflet Map CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    
+    <!-- Stylesheets with Cache-Busting -->
+    <link rel="stylesheet" href="{% static 'css/style.css' %}?v=6.0.0">
+    <link rel="stylesheet" href="{% static 'css/synoptic.css' %}?v=6.0.0">
+</head>
+<body class="obsidian-theme">
+
+    <!-- ======================================================================
+         Main Matte Obsidian Shell Container
+         ====================================================================== -->
+    <div class="obs-shell-wrapper">
+        <div class="obs-main-card">
+
+            <!-- ==================================================================
+                 1. Top Navigation Bar
+                 ================================================================== -->
+            <header class="obs-top-navbar">
+                <!-- Left Nav Controls -->
+                <div class="obs-nav-left">
+                    <button type="button" class="obs-icon-pill" id="open-menu-btn" title="Open Menu">
+                        <i class="fa-solid fa-table-cells-large"></i>
+                    </button>
+
+                    <button type="button" class="obs-icon-pill" id="open-notif-btn" title="Live Background Weather Alerts">
+                        <i class="fa-solid fa-bell"></i>
+                        <span class="obs-notif-dot"></span>
+                    </button>
+
+                    <button type="button" class="obs-location-pill" id="open-search-btn" title="Click to use your live GPS location">
+                        <i class="fa-solid fa-location-crosshairs loc-pin text-cyan"></i>
+                        <span id="obs-location-name">{{ data.location.city }}{% if data.location.country %}, {{ data.location.country }}{% endif %}</span>
+                    </button>
+                </div>
+
+                <!-- Center Search Input -->
+                <div class="obs-search-container">
+                    <form id="syn-search-form" method="GET" action="/" class="obs-search-form">
+                        <input type="hidden" name="guest" value="1">
+                        <i class="fa-solid fa-magnifying-glass obs-search-icon"></i>
+                        <input type="text" id="syn-search-input" name="city" class="obs-search-input" placeholder="Search city (e.g. Nagpur, Mumbai, San Francisco, London)..." autocomplete="off" value="{{ query|default:'' }}">
+                    </form>
+                    <div class="obs-suggestions-box" id="syn-suggestions-box" style="display: none;"></div>
+                </div>
+
+                <!-- Right Nav Controls -->
+                <div class="obs-nav-right">
+                    <button type="button" class="obs-icon-pill" id="open-insights-btn" title="AI Risk Score & Decision Assistant">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+
+                    <button type="button" class="obs-circle-action-btn" id="syn-unit-toggle" title="Switch °C / °F">
+                        <i class="fa-solid fa-moon"></i>
+                    </button>
+
+                    <button type="button" class="obs-user-avatar-btn" id="open-profile-btn" title="View Observer Profile & Settings">
+                        <div class="obs-avatar-circle">
+                            {% if user.is_authenticated %}
+                                <span>{{ user.username|slice:":1"|upper }}</span>
+                            {% else %}
+                                <i class="fa-solid fa-user"></i>
+                            {% endif %}
+                        </div>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Emergency Severe Weather Alert Banner (If Triggered) -->
+            {% if data.enhancements.emergency_alerts %}
+            {% for alert in data.enhancements.emergency_alerts %}
+            <div class="obs-emergency-banner">
+                <i class="fa-solid {{ alert.icon }} obs-alert-ico"></i>
+                <div class="obs-alert-body">
+                    <span class="obs-alert-title">{{ alert.title }}</span>
+                    <span class="obs-alert-desc">{{ alert.desc }}</span>
+                </div>
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            {% if error %}
+            <div class="obs-error-banner">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <span>{{ error }}</span>
+            </div>
+            {% endif %}
+
+            {% if data %}
+            <!-- ==================================================================
+                 2. Top Row: 7-Day Horizontal Strip (Left) + Chance of Rain (Right)
+                 ================================================================== -->
+            <div class="obs-top-dashboard-grid">
+                
+                <!-- Left: Forecast Range Strip -->
+                <section class="obs-forecast-strip-section">
+                    
+                    <!-- Section Header with Range Tabs and Mode Toggle -->
+                    <div class="obs-section-header-row">
+                        <div class="obs-range-tabs">
+                            <button type="button" class="obs-tab-text active" id="tab-btn-today" data-range="today">Today</button>
+                            <button type="button" class="obs-tab-text" id="tab-btn-tomorrow" data-range="tomorrow">Tomorrow</button>
+                            <button type="button" class="obs-tab-text" id="tab-btn-7days" data-range="7days">Next 7 Days</button>
+                        </div>
+
+                        <div class="obs-mode-pill-toggle">
+                            <button type="button" class="obs-mode-btn active" id="toggle-forecast-mode">Forecast</button>
+                            <button type="button" class="obs-mode-btn" id="toggle-aqi-mode">Air quality</button>
+                        </div>
+                    </div>
+
+                    <!-- Horizontal Forecast Cards Container -->
+                    <div class="obs-cards-horizontal-strip" id="obs-forecast-cards-container">
+                        
+                        <!-- TAB 1: TODAY VIEW -->
+                        <div class="obs-tab-panel active" id="obs-tab-today">
+                            <div class="obs-tab-inner-strip">
+                                <!-- Hero Card (Soft Light Sky Blue Accent) -->
+                                <div class="obs-hero-today-card" id="obs-today-hero">
+                                    <div class="obs-hero-card-header">
+                                        <span class="obs-hero-dayname">{{ data.daily.0.day|default:"Today" }}</span>
+                                        <span class="obs-hero-liveclock" id="syn-live-datetime">{{ data.current.formatted_time|default:"11:42 PM" }}</span>
+                                    </div>
+
+                                    <div class="obs-hero-main-temp-row">
+                                        <div class="obs-hero-temp-number" id="syn-hero-temp" data-temp-c="{{ data.current.temperature }}">
+                                            {{ data.current.temperature|floatformat:0 }}°
+                                        </div>
+                                        <div class="obs-hero-icon-wrap">
+                                            {% if data.current.theme_category == 'clear' %}
+                                                <i class="fa-solid fa-sun text-gold"></i>
+                                            {% elif data.current.theme_category == 'rain' %}
+                                                <i class="fa-solid fa-cloud-sun-rain text-cyan"></i>
+                                            {% elif data.current.theme_category == 'thunderstorm' %}
+                                                <i class="fa-solid fa-cloud-bolt text-gold"></i>
+                                            {% elif data.current.theme_category == 'snow' %}
+                                                <i class="fa-solid fa-snowflake text-white"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-cloud-sun text-white"></i>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="obs-hero-metrics-grid">
+                                        <div class="obs-hero-metric-item">
+                                            <span>Real Feel</span> <strong><span id="syn-hero-feels" data-temp-c="{{ data.current.feels_like }}">{{ data.current.feels_like|floatformat:0 }}°</span></strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Sunrise</span> <strong>{{ data.current.sunrise|default:"6:02 AM" }}</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Wind</span> <strong>{{ data.current.wind_direction }} {{ data.current.wind_speed }}km/h</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Sunset</span> <strong>{{ data.current.sunset|default:"8:19 PM" }}</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Pressure</span> <strong>{{ data.current.surface_pressure|floatformat:0|default:"1000" }}MB</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Humidity</span> <strong>{{ data.current.humidity }}%</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Cards 2 to 7: Daily Dark Matte Vertical Pill Cards -->
+                                <div class="obs-daily-pills-row">
+                                    {% for day in data.daily|slice:"1:7" %}
+                                    <div class="obs-daily-pill-card">
+                                        <span class="obs-pill-day">{{ day.day|slice:":3" }}</span>
+                                        <div class="obs-pill-icon">
+                                            {% if day.precip_prob_max > 50 %}
+                                                <i class="fa-solid fa-cloud-showers-heavy text-cyan"></i>
+                                            {% elif day.category == 'clear' %}
+                                                <i class="fa-solid fa-sun text-gold"></i>
+                                            {% elif day.category == 'thunderstorm' %}
+                                                <i class="fa-solid fa-cloud-bolt text-gold"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-cloud-sun text-white"></i>
+                                            {% endif %}
+                                        </div>
+                                        <span class="obs-pill-temp syn-temp-dyn" data-temp-c="{{ day.temp_max }}">{{ day.temp_max|floatformat:0 }}°</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 2: TOMORROW VIEW -->
+                        <div class="obs-tab-panel" id="obs-tab-tomorrow" style="display: none;">
+                            <div class="obs-tab-inner-strip">
+                                <!-- Tomorrow Hero Card -->
+                                <div class="obs-hero-today-card obs-hero-tomorrow-card">
+                                    <div class="obs-hero-card-header">
+                                        <span class="obs-hero-dayname">{{ data.daily.1.day|default:"Tomorrow" }}</span>
+                                        <span class="obs-hero-liveclock"><i class="fa-regular fa-calendar"></i> Next Day</span>
+                                    </div>
+
+                                    <div class="obs-hero-main-temp-row">
+                                        <div class="obs-hero-temp-number" data-temp-c="{{ data.daily.1.temp_max|default:data.current.temperature }}">
+                                            {{ data.daily.1.temp_max|floatformat:0|default:data.current.temperature|floatformat:0 }}°
+                                        </div>
+                                        <div class="obs-hero-icon-wrap">
+                                            {% if data.daily.1.category == 'clear' %}
+                                                <i class="fa-solid fa-sun text-gold"></i>
+                                            {% elif data.daily.1.precip_prob_max > 50 %}
+                                                <i class="fa-solid fa-cloud-showers-heavy text-cyan"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-cloud-sun text-white"></i>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+
+                                    <div class="obs-hero-metrics-grid">
+                                        <div class="obs-hero-metric-item">
+                                            <span>Max / Min</span> <strong>{{ data.daily.1.temp_max|floatformat:0 }}° / {{ data.daily.1.temp_min|floatformat:0 }}°</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Sunrise</span> <strong>{{ data.daily.1.sunrise|default:"6:05 AM" }}</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Rain Prob</span> <strong>{{ data.daily.1.precip_prob_max }}%</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Sunset</span> <strong>{{ data.daily.1.sunset|default:"8:15 PM" }}</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>Max Wind</span> <strong>{{ data.daily.1.wind_speed_max }}km/h</strong>
+                                        </div>
+                                        <div class="obs-hero-metric-item">
+                                            <span>UV Index</span> <strong>{{ data.daily.1.uv_index_max }}</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Subsequent Days -->
+                                <div class="obs-daily-pills-row">
+                                    {% for day in data.daily|slice:"2:8" %}
+                                    <div class="obs-daily-pill-card">
+                                        <span class="obs-pill-day">{{ day.day|slice:":3" }}</span>
+                                        <div class="obs-pill-icon">
+                                            {% if day.precip_prob_max > 50 %}
+                                                <i class="fa-solid fa-cloud-showers-heavy text-cyan"></i>
+                                            {% elif day.category == 'clear' %}
+                                                <i class="fa-solid fa-sun text-gold"></i>
+                                            {% else %}
+                                                <i class="fa-solid fa-cloud-sun text-white"></i>
+                                            {% endif %}
+                                        </div>
+                                        <span class="obs-pill-temp syn-temp-dyn" data-temp-c="{{ day.temp_max }}">{{ day.temp_max|floatformat:0 }}°</span>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TAB 3: NEXT 7 DAYS VIEW -->
+                        <div class="obs-tab-panel" id="obs-tab-7days" style="display: none;">
+                            <div class="obs-extended-7days-grid">
+                                {% for day in data.daily|slice:":7" %}
+                                <div class="obs-extended-day-card">
+                                    <span class="obs-ext-day-title">{{ day.day }}</span>
+                                    <div class="obs-pill-icon">
+                                        {% if day.precip_prob_max > 50 %}
+                                            <i class="fa-solid fa-cloud-showers-heavy text-cyan"></i>
+                                        {% elif day.category == 'clear' %}
+                                            <i class="fa-solid fa-sun text-gold"></i>
+                                        {% elif day.category == 'thunderstorm' %}
+                                            <i class="fa-solid fa-cloud-bolt text-gold"></i>
+                                        {% else %}
+                                            <i class="fa-solid fa-cloud-sun text-white"></i>
+                                        {% endif %}
+                                    </div>
+                                    <div class="obs-ext-temp-range">
+                                        <span style="color: #ffffff;">{{ day.temp_max|floatformat:0 }}°</span>
+                                        <span style="color: var(--obs-text-dim); font-size: 0.82rem;">{{ day.temp_min|floatformat:0 }}°</span>
+                                    </div>
+                                    <span class="obs-ext-rain-badge">💧 {{ day.precip_prob_max }}% rain</span>
+                                    <span class="obs-ext-day-desc">💨 {{ day.wind_speed_max }}km/h</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Air Quality View (Hidden by default, toggled via 'Air quality' pill) -->
+                    <div class="obs-aqi-view-container" id="obs-aqi-view" style="display: none;">
+                        <div class="obs-aqi-card-content">
+                            <div class="obs-aqi-header">
+                                <div>
+                                    <span class="obs-aqi-label">AIR QUALITY INDEX (AQI)</span>
+                                    <h2 class="obs-aqi-value" style="color: {{ data.air_quality.color }};">{{ data.air_quality.aqi }} <small>({{ data.air_quality.status }})</small></h2>
+                                </div>
+                                <div class="obs-aqi-desc">{{ data.air_quality.description }}</div>
+                            </div>
+                            <div class="obs-aqi-pollutants-row">
+                                <div class="obs-aqi-pollutant-box"><span>PM2.5</span> <strong>{{ data.air_quality.pm25 }} µg/m³</strong></div>
+                                <div class="obs-aqi-pollutant-box"><span>PM10</span> <strong>{{ data.air_quality.pm10 }} µg/m³</strong></div>
+                                <div class="obs-aqi-pollutant-box"><span>O3 (Ozone)</span> <strong>{{ data.air_quality.o3 }} µg/m³</strong></div>
+                                <div class="obs-aqi-pollutant-box"><span>NO2</span> <strong>{{ data.air_quality.no2 }} µg/m³</strong></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </section>
+
+                <!-- Right: Chance of Rain Bar Chart Card -->
+                <aside class="obs-chance-rain-card">
+                    <div class="obs-rain-header">
+                        <span class="obs-rain-title">Chance of rain</span>
+                    </div>
+
+                    <div class="obs-rain-chart-wrapper">
+                        <!-- Custom Animated Rain Bars matching the Reference Image -->
+                        <div class="obs-rain-y-axis">
+                            <span>Rainy</span>
+                            <span>Sunny</span>
+                            <span>Heavy</span>
+                        </div>
+
+                        <div class="obs-rain-bars-container" id="obs-rain-bars-container">
+                            {% for h in data.hourly|slice:":6" %}
+                            <div class="obs-rain-bar-col">
+                                <div class="obs-rain-bar-track">
+                                    <div class="obs-rain-bar-fill" style="height: {{ h.precip_prob|default:20 }}%;" data-prob="{{ h.precip_prob }}"></div>
+                                </div>
+                                <span class="obs-rain-hour-label">{{ h.time|slice:":5" }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </aside>
+
+            </div>
+
+            <!-- ==================================================================
+                 3. Bottom Row: Global Map Radar (Left) + Other Large Cities (Right)
+                 ================================================================== -->
+            <div class="obs-bottom-dashboard-grid">
+                
+                <!-- Left: Global Map Interactive Radar Card -->
+                <section class="obs-global-map-card">
+                    <div class="obs-map-header">
+                        <div class="obs-map-title-row">
+                            <span class="obs-map-title"><i class="fa-solid fa-earth-americas text-cyan"></i> Global map</span>
+                            <div class="obs-map-search-wrapper">
+                                <i class="fa-solid fa-magnifying-glass obs-map-search-ico"></i>
+                                <input type="text" id="obs-map-search-input" class="obs-map-search-input" placeholder="Search city on map..." autocomplete="off">
+                                <div id="obs-map-search-results" class="obs-map-suggestions-box" style="display: none;"></div>
+                            </div>
+                        </div>
+                        <div class="obs-map-header-actions">
+                            <button type="button" class="obs-map-quick-btn" data-city="Nagpur" title="Jump to Nagpur">Nagpur</button>
+                            <button type="button" class="obs-map-quick-btn" data-city="Mumbai" title="Jump to Mumbai">Mumbai</button>
+                            <button type="button" class="obs-map-quick-btn" data-city="London" title="Jump to London">London</button>
+                            <button type="button" class="obs-map-link-btn" id="open-radar-btn">View wide <i class="fa-solid fa-arrow-up-right-from-square"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="obs-leaflet-map-container" id="obs-global-leaflet-map"></div>
+
+                    <!-- Floating Map Callout Card (Bottom Left of Map) -->
+                    <div class="obs-map-floating-overlay-card">
+                        <div class="obs-floating-thumb-wrap">
+                            <div class="obs-satellite-swirl-icon"><i class="fa-solid fa-hurricane"></i></div>
+                        </div>
+                        <div class="obs-floating-card-body">
+                            <p class="obs-floating-card-text">Explore global map of wind, weather and oceans condition.</p>
+                            <button type="button" class="obs-floating-card-btn" id="obs-explore-map-btn">Get started</button>
+                        </div>
+                    </div>
+
+                    <!-- Map Floating Controls (Right Side) -->
+                    <div class="obs-map-controls-group">
+                        <button type="button" class="obs-map-ctrl-btn" id="obs-map-layer-btn" title="Toggle Precipitation/Wind Layer"><i class="fa-solid fa-layer-group"></i></button>
+                        <button type="button" class="obs-map-ctrl-btn" id="obs-map-zoom-in" title="Zoom In"><i class="fa-solid fa-plus"></i></button>
+                        <button type="button" class="obs-map-ctrl-btn" id="obs-map-zoom-out" title="Zoom Out"><i class="fa-solid fa-minus"></i></button>
+                        <button type="button" class="obs-map-ctrl-btn" id="geo-location-btn" title="Center Current GPS Location"><i class="fa-solid fa-crosshairs"></i></button>
+                    </div>
+                </section>
+
+                <!-- Right: Other Large Cities Sidebar -->
+                <aside class="obs-other-cities-card">
+                    <div class="obs-other-cities-header">
+                        <span class="obs-other-cities-title">Other large cities</span>
+                        <button type="button" class="obs-map-link-btn" id="open-all-cities-btn">Show All <i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+
+                    <div class="obs-cities-list">
+                        {% for city in other_cities|slice:":3" %}
+                        <a href="/?city={{ city.name|urlencode }}" class="obs-city-row-card">
+                            <div class="obs-city-info">
+                                <span class="obs-city-region">{{ city.region }}</span>
+                                <h4 class="obs-city-name">{{ city.name }}</h4>
+                                <span class="obs-city-desc">{{ city.description }}</span>
+                            </div>
+                            <div class="obs-city-weather-right">
+                                <div class="obs-city-icon">
+                                    {% if city.icon == 'rain' %}
+                                        <i class="fa-solid fa-cloud-showers-heavy text-cyan"></i>
+                                    {% elif city.icon == 'clear' %}
+                                        <i class="fa-solid fa-sun text-gold"></i>
+                                    {% else %}
+                                        <i class="fa-solid fa-cloud-sun text-white"></i>
+                                    {% endif %}
+                                </div>
+                                <span class="obs-city-temp">{{ city.temp }}°</span>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </aside>
+
+            </div>
+
+            <!-- ==================================================================
+                 4. Quick Technical Utilities Ribbon (Voice, Risk Score, Insights)
+                 ================================================================== -->
+            <div class="obs-quick-utilities-bar">
+                
+                <!-- Voice Broadcast Pill -->
+                <div class="obs-util-pill" id="syn-voice-bar">
+                    <button type="button" class="obs-voice-btn" id="syn-voice-play-btn" title="Play Live Voice Broadcast">
+                        <i class="fa-solid fa-volume-high" id="syn-voice-icon"></i>
+                    </button>
+                    <span class="obs-util-label">Voice Broadcast</span>
+                    <div class="syn-voice-lang-group">
+                        <button type="button" class="syn-voice-lang-btn active" data-lang="en">EN</button>
+                        <button type="button" class="syn-voice-lang-btn" data-lang="hinglish">HI</button>
+                    </div>
+                </div>
+
+                <!-- Weather Risk Score Pill -->
+                <div class="obs-util-pill" id="open-risk-modal-btn">
+                    <i class="fa-solid fa-shield-halved" style="color: {{ data.enhancements.risk.color }};"></i>
+                    <span>Risk Score: <strong style="color: {{ data.enhancements.risk.color }};">{{ data.enhancements.risk.score }}/100</strong> ({{ data.enhancements.risk.level }})</span>
+                </div>
+
+                <!-- "Can I Go Out?" Pill -->
+                <div class="obs-util-pill" id="open-assistant-btn">
+                    <i class="fa-solid fa-person-walking text-gold"></i>
+                    <span>"Can I Go Out?": <strong style="color: {{ data.enhancements.can_i_go_out.color }};">{{ data.enhancements.can_i_go_out.verdict }}</strong></span>
+                </div>
+
+                <!-- Sightline Visibility Pill -->
+                <div class="obs-util-pill" id="open-fog-modal-btn">
+                    <i class="fa-solid fa-smog text-cyan"></i>
+                    <span>Sightline: <strong>{{ data.enhancements.fog.visibility_km }} km</strong> ({{ data.enhancements.fog.badge }})</span>
+                </div>
+
+                <!-- Bookmark Button -->
+                {% if user.is_authenticated %}
+                <button type="button" class="obs-util-pill bookmark-btn" id="bookmark-toggle-btn" data-city="{{ data.location.city }}" data-country="{{ data.location.country }}" data-lat="{{ data.location.latitude }}" data-lon="{{ data.location.longitude }}">
+                    <i class="fa-solid fa-star text-gold"></i>
+                    <span>{% if is_current_favorite %}Bookmarked{% else %}Save City{% endif %}</span>
+                </button>
+                {% endif %}
+
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <!-- ======================================================================
+         5. Modals & Sliding Drawers
+         ====================================================================== -->
+
+    <!-- Professional Obsidian Sliding Telemetry Menu Drawer -->
+    <div class="syn-drawer-overlay" id="menu-drawer-overlay">
+        <div class="syn-menu-drawer">
+            <div class="syn-drawer-header">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <i class="fa-solid fa-satellite-dish text-gold"></i>
+                    <span class="syn-drawer-title">OBSIDIAN TELEMETRY</span>
+                </div>
+                <button type="button" class="syn-modal-close" id="close-menu-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <!-- Live Status Ribbon -->
+            <div class="syn-drawer-status-pill">
+                <span class="syn-prof-status-dot"></span>
+                <span>ECMWF &bull; 9.0km HD Telemetry Live</span>
+            </div>
+
+            {% if user.is_authenticated %}
+            <div class="syn-user-card">
+                <div class="syn-user-avatar">{{ user.username|slice:":1"|upper }}</div>
+                <div class="syn-user-info">
+                    <div class="name">{{ user.username }}</div>
+                    <div class="sub">{{ user.email|default:"Active Observer" }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="syn-user-card">
+                <div class="syn-user-avatar"><i class="fa-solid fa-user-astronaut"></i></div>
+                <div class="syn-user-info">
+                    <div class="name">Guest Meteorologist</div>
+                    <div class="sub">Station Node: {{ data.location.city|default:"Nagpur" }}</div>
+                </div>
+            </div>
+            {% endif %}
+
+            <nav class="syn-drawer-nav">
+                <button type="button" class="syn-drawer-link" id="drawer-insights-btn">
+                    <i class="fa-solid fa-wand-magic-sparkles text-gold"></i>
+                    <span>AI Decision & Risk Matrix</span>
+                </button>
+
+                <button type="button" class="syn-drawer-link" id="drawer-radar-btn">
+                    <i class="fa-solid fa-chart-line text-cyan"></i>
+                    <span>24H Interactive AI Radar</span>
+                </button>
+
+                <button type="button" class="syn-drawer-link" id="drawer-notif-btn">
+                    <i class="fa-solid fa-bell text-gold"></i>
+                    <span>OS Weather Push Alerts</span>
+                </button>
+
+                {% if user.is_authenticated %}
+                <a href="{% url 'forecast:logout' %}" class="syn-drawer-link logout">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                    <span>Sign Out Session</span>
+                </a>
+                {% else %}
+                <a href="{% url 'forecast:login' %}" class="syn-drawer-link auth-cta">
+                    <i class="fa-solid fa-right-to-bracket text-gold"></i>
+                    <span>Sign In / Create Account</span>
+                </a>
+                <a href="{% url 'forecast:demo_login' %}" class="syn-drawer-link demo-cta">
+                    <i class="fa-solid fa-bolt-lightning text-cyan"></i>
+                    <span>1-Click Demo Login</span>
+                </a>
+                {% endif %}
+            </nav>
+
+            <div class="syn-drawer-footer">
+                <span>Core Build v6.2 &bull; Open-Meteo &copy;</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI Decision Assistant & Meteorological Risk Insights Modal -->
+    <div class="syn-modal-overlay" id="insights-modal-overlay">
+        <div class="syn-insights-modal-card">
+            <div class="syn-modal-header">
+                <h3 class="syn-modal-title"><i class="fa-solid fa-wand-magic-sparkles text-gold"></i> AI Decision Assistant & Risk Insights</h3>
+                <button type="button" class="syn-modal-close" id="close-insights-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="syn-insights-grid">
+                <!-- Can I Go Out? Assistant -->
+                <div class="syn-insight-box full-width" style="border-left: 4px solid {{ data.enhancements.can_i_go_out.color }};">
+                    <div class="syn-insight-header">
+                        <span class="syn-insight-title"><i class="fa-solid fa-person-walking text-gold"></i> "Can I Go Out?" Assistant</span>
+                        <span class="syn-act-badge" style="background: {{ data.enhancements.can_i_go_out.color }}33; color: {{ data.enhancements.can_i_go_out.color }};">
+                            {{ data.enhancements.can_i_go_out.verdict }}
+                        </span>
+                    </div>
+                    <p style="font-size: 0.88rem; color: rgba(255,255,255,0.85); margin: 0;">{{ data.enhancements.can_i_go_out.summary }}</p>
+
+                    <!-- Activity Matrix -->
+                    <div class="syn-activity-matrix" style="margin-top: 10px;">
+                        {% for act in data.enhancements.can_i_go_out.activities %}
+                        <div class="syn-activity-card">
+                            <div class="syn-act-top">
+                                <span><i class="fa-solid {{ act.icon }}"></i> {{ act.name }}</span>
+                                <span class="syn-act-badge" style="background: {{ act.color }}26; color: {{ act.color }};">{{ act.status }}</span>
+                            </div>
+                            <div class="syn-risk-bar-container" style="height: 6px;">
+                                <div class="syn-risk-bar-fill" style="width: {{ act.score }}%; background: {{ act.color }};"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Weather Risk Score -->
+                <div class="syn-insight-box">
+                    <div class="syn-insight-header">
+                        <span class="syn-insight-title"><i class="fa-solid fa-shield-halved text-rose"></i> Weather Risk Score</span>
+                        <span class="syn-act-badge" style="background: {{ data.enhancements.risk.color }}26; color: {{ data.enhancements.risk.color }};">
+                            {{ data.enhancements.risk.level }}
+                        </span>
+                    </div>
+                    <div class="syn-risk-gauge-wrap">
+                        <div class="syn-risk-score-circle" style="color: {{ data.enhancements.risk.color }};">
+                            {{ data.enhancements.risk.score }}<span style="font-size: 1rem; color: var(--syn-text-dim);">/100</span>
+                        </div>
+                        <div style="flex: 1; display: flex; flex-direction: column; gap: 6px;">
+                            <div class="syn-risk-bar-container">
+                                <div class="syn-risk-bar-fill" style="width: {{ data.enhancements.risk.score }}%; background: {{ data.enhancements.risk.color }};"></div>
+                            </div>
+                            <span style="font-size: 0.76rem; color: var(--syn-text-muted);">Computed from rain probabilities, wind velocity, UV index, and temperature deltas.</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fog & Sightline Visibility -->
+                <div class="syn-insight-box">
+                    <div class="syn-insight-header">
+                        <span class="syn-insight-title"><i class="fa-solid fa-smog text-cyan"></i> Fog & Visibility Prediction</span>
+                        <span class="syn-act-badge" style="background: {{ data.enhancements.fog.color }}26; color: {{ data.enhancements.fog.color }};">
+                            {{ data.enhancements.fog.badge }}
+                        </span>
+                    </div>
+                    <div style="font-size: 1.4rem; font-weight: 800; color: #ffffff;">
+                        {{ data.enhancements.fog.visibility_km }} km <span style="font-size: 0.85rem; font-weight: 600; color: var(--syn-text-dim);">(Sightline)</span>
+                    </div>
+                    <p style="font-size: 0.8rem; color: rgba(255,255,255,0.8); margin: 0;">{{ data.enhancements.fog.advice }}</p>
+                </div>
+
+                <!-- Smart Travel Readiness -->
+                <div class="syn-insight-box full-width">
+                    <div class="syn-insight-header">
+                        <span class="syn-insight-title"><i class="fa-solid fa-route text-gold"></i> Smart Travel Recommendation</span>
+                        <span class="syn-act-badge" style="background: rgba(250, 204, 21, 0.2); color: #facc15;">
+                            Score: {{ data.enhancements.travel.score }}/100
+                        </span>
+                    </div>
+                    <div class="syn-travel-list">
+                        <div class="syn-travel-row"><span>🚗 Highway Safety:</span> <strong>{{ data.enhancements.travel.highway_status }}</strong></div>
+                        <div class="syn-travel-row"><span>✈️ Airport & Flights:</span> <strong>{{ data.enhancements.travel.airport_status }}</strong></div>
+                        <div class="syn-travel-row"><span>⏰ Recommended Window:</span> <strong>{{ data.enhancements.travel.best_window }}</strong></div>
+                        <div class="syn-travel-row" style="border: none;"><span>🎒 Packing Advice:</span> <strong style="color: #facc15;">{{ data.enhancements.travel.packing_tip }}</strong></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 24-Hour AI Interactive Chart Modal -->
+    <div class="syn-modal-overlay" id="radar-modal-overlay">
+        <div class="syn-ai-modal-card">
+            <div class="syn-modal-header">
+                <h3 class="syn-modal-title"><i class="fa-solid fa-chart-line text-gold"></i> 24-Hour AI Meteorological Forecast</h3>
+                <button type="button" class="syn-modal-close" id="close-radar-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="syn-ai-chart-wrap">
+                <canvas id="synHourlyChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Background Push Weather Alerts Modal -->
+    <div class="syn-modal-overlay" id="notif-modal-overlay">
+        <div class="syn-notif-modal-card">
+            <div class="syn-modal-header">
+                <h3 class="syn-modal-title"><i class="fa-solid fa-bell text-gold"></i> Background Weather Notifications</h3>
+                <button type="button" class="syn-modal-close" id="close-notif-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <p style="font-size: 0.84rem; color: rgba(255,255,255,0.85); margin: 0;">
+                Receive instant OS push notifications when rain starts, clears, cloudiness surges, or heat spikes!
+            </p>
+            <div class="syn-toggle-row" style="background: rgba(250, 204, 21, 0.1); border-color: rgba(250, 204, 21, 0.3);">
+                <div class="syn-toggle-info">
+                    <span class="syn-toggle-title" style="color: #facc15;"><i class="fa-solid fa-satellite-dish"></i> Background Alert Service</span>
+                    <span class="syn-toggle-desc">Enable background polling and OS push notifications</span>
+                </div>
+                <label class="syn-switch">
+                    <input type="checkbox" id="master-notif-toggle">
+                    <span class="syn-slider"></span>
+                </label>
+            </div>
+            <div style="display: flex; gap: 10px; margin-top: 6px;">
+                <button type="button" class="syn-search-submit-btn" id="test-notif-btn" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                    <i class="fa-solid fa-paper-plane"></i> Test Notification Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Meteorological Observer Profile & Account Modal -->
+    <div class="syn-modal-overlay" id="profile-modal-overlay">
+        <div class="syn-profile-modal-card">
+            <div class="syn-modal-header">
+                <h3 class="syn-modal-title"><i class="fa-solid fa-id-badge text-gold"></i> Meteorological Observer Profile</h3>
+                <button type="button" class="syn-modal-close" id="close-profile-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div class="syn-prof-hero">
+                <div class="syn-prof-avatar-ring">
+                    {% if user.is_authenticated %}
+                        <span class="syn-prof-letter">{{ user.username|slice:":1"|upper }}</span>
+                    {% else %}
+                        <i class="fa-solid fa-user-astronaut"></i>
+                    {% endif %}
+                </div>
+                <div class="syn-prof-details">
+                    <h3 class="syn-prof-name">{% if user.is_authenticated %}{{ user.username }}{% else %}Guest Meteorologist{% endif %}</h3>
+                    <span class="syn-prof-status"><span class="syn-prof-status-dot"></span> Online &bull; Live Satellite Node</span>
+                    <p class="syn-prof-email">{% if user.is_authenticated %}{{ user.email|default:"Registered Analyst" }}{% else %}Browsing in guest mode{% endif %}</p>
+                </div>
+            </div>
+
+            <div class="syn-prof-metrics-grid">
+                <div class="syn-prof-metric-card">
+                    <span class="label">Forecast Engine</span>
+                    <strong>ECMWF &bull; ICON &bull; GFS</strong>
+                </div>
+                <div class="syn-prof-metric-card">
+                    <span class="label">AI Precision</span>
+                    <strong style="color: #10b981;">94.8% Accuracy</strong>
+                </div>
+                <div class="syn-prof-metric-card">
+                    <span class="label">Active Station Pin</span>
+                    <strong style="color: #38bdf8;">{{ data.location.city }}</strong>
+                </div>
+                <div class="syn-prof-metric-card">
+                    <span class="label">Risk Index</span>
+                    <strong style="color: #facc15;">{{ data.enhancements.risk.score|default:12 }}/100 Risk</strong>
+                </div>
+            </div>
+
+            <div class="syn-prof-actions">
+                {% if user.is_authenticated %}
+                    <a href="{% url 'forecast:logout' %}" class="syn-prof-btn btn-danger"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+                {% else %}
+                    <a href="{% url 'forecast:login' %}" class="syn-prof-btn btn-gold"><i class="fa-solid fa-right-to-bracket"></i> Sign In / Register</a>
+                    <a href="{% url 'forecast:login' %}" class="syn-prof-btn btn-cyan"><i class="fa-solid fa-bolt-lightning"></i> Fast Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Toast Container -->
+    <div class="syn-toast-container" id="syn-toast-container"></div>
+
+    <!-- Hidden Raw JSON Data for Dynamic Script Execution -->
+    <script id="weather-raw-data" type="application/json">
+        {{ data_json|safe }}
+    </script>
+
+    <!-- Main Logic Script with Cache-Busting -->
+    <script src="{% static 'js/main.js' %}?v=7.0.0"></script>
+</body>
+</html>
