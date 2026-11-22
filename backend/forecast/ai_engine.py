@@ -1,4 +1,4 @@
-"""
+﻿"""
 AI Weather Forecasting Engine using Scikit-Learn HistGradientBoostingClassifier.
 Implements dynamic feature engineering, TimeSeriesSplit validation,
 joblib model caching with FileLock, and multi-horizon rain probability forecasting.
@@ -19,7 +19,14 @@ from django.conf import settings
 
 # Directory for storing trained models
 MODELS_DIR = getattr(settings, 'ML_MODELS_DIR', os.path.join(os.path.dirname(__file__), 'ml_models'))
-os.makedirs(MODELS_DIR, exist_ok=True)
+try:
+    os.makedirs(MODELS_DIR, exist_ok=True)
+except Exception:
+    MODELS_DIR = os.path.join('/tmp', 'ml_models')
+    try:
+        os.makedirs(MODELS_DIR, exist_ok=True)
+    except Exception:
+        pass
 
 # Feature names used for training and inference
 FEATURE_COLS = [
@@ -402,3 +409,4 @@ def generate_synthetic_weather_dataset():
         'rain': precip
     })
     return df
+

@@ -180,10 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
             attributionControl: false
         });
 
-        // High-clarity CartoDB Dark Matter with labels
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            maxZoom: 19,
-            subdomains: 'abcd',
+        // Esri Dark Gray Base (Free, no API key required)
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 16,
+            attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
         }).addTo(leafletMap);
 
         // Comprehensive Global & Indian City Pins

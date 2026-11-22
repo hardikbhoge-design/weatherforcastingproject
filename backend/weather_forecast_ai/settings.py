@@ -1,23 +1,26 @@
-"""
+﻿"""
 Django settings for weather_forecast_ai project.
 """
 
 from pathlib import Path
 import os
+import sys
+import shutil
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
+# Ensure project root and backend are in sys.path
+sys.path.insert(0, str(BASE_DIR))
+sys.path.insert(0, str(BASE_DIR / 'backend'))
 
-# SECURITY WARNING: keep the secret key used in production secret!
+# Quick-start development settings - unsuitable for production
 SECRET_KEY = 'django-insecure-weather-ai-super-secret-key-for-forecasting-v2'
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
+CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app']
 
 # Application definition
 INSTALLED_APPS = [
@@ -32,13 +35,21 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+]
+try:
+    import whitenoise
+    MIDDLEWARE.append('whitenoise.middleware.WhiteNoiseMiddleware')
+except ImportError:
+    pass
+
+MIDDLEWARE.extend([
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-]
+])
 
 ROOT_URLCONF = 'weather_forecast_ai.urls'
 
@@ -63,19 +74,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'weather_forecast_ai.wsgi.application'
 
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
+# Database configuration with Vercel / serverless environment support
+IS_VERCEL = 'VERCEL' in os.environ
+
+if IS_VERCEL:
+    tmp_db = Path('/tmp') / 'db.sqlite3'
+    orig_db = BASE_DIR / 'database' / 'db.sqlite3'
+    if orig_db.exists() and not tmp_db.exists():
+        try:
+            shutil.copy2(orig_db, tmp_db)
+        except Exception:
+            pass
+    DB_PATH = tmp_db
+else:
+    DB_PATH = BASE_DIR / 'database' / 'db.sqlite3'
 
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'database' / 'db.sqlite3',
+        'NAME': DB_PATH,
     }
 }
 
 # Password validation
-# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
@@ -92,19 +113,12 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
-
 LANGUAGE_CODE = 'en-us'
-
 TIME_ZONE = 'UTC'
-
 USE_I18N = True
-
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
-
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [
     d for d in [
@@ -115,8 +129,24 @@ STATICFILES_DIRS = [
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # Directory for cached ML models
-ML_MODELS_DIR = BASE_DIR / 'backend' / 'forecast' / 'ml_models'
-os.makedirs(ML_MODELS_DIR, exist_ok=True)
+if IS_VERCEL:
+    ML_MODELS_DIR = Path('/tmp') / 'ml_models'
+    try:
+        os.makedirs(ML_MODELS_DIR, exist_ok=True)
+        bundled_dir = BASE_DIR / 'backend' / 'forecast' / 'ml_models'
+        if bundled_dir.exists():
+            for f in bundled_dir.glob('*.joblib'):
+                dest_file = ML_MODELS_DIR / f.name
+                if not dest_file.exists():
+                    shutil.copy2(f, dest_file)
+    except Exception:
+        pass
+else:
+    ML_MODELS_DIR = BASE_DIR / 'backend' / 'forecast' / 'ml_models'
+    try:
+        os.makedirs(ML_MODELS_DIR, exist_ok=True)
+    except Exception:
+        pass
 
-# Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
