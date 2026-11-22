@@ -20,7 +20,7 @@ SECRET_KEY = 'django-insecure-weather-ai-super-secret-key-for-forecasting-v2'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app']
+CSRF_TRUSTED_ORIGINS = ['https://*.vercel.app', 'https://*.onrender.com']
 
 # Application definition
 INSTALLED_APPS = [
@@ -149,4 +149,5 @@ else:
         pass
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
 
